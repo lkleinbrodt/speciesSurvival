@@ -1,0 +1,95 @@
+---
+title: "EDA"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+
+```
+
+```{r Load data}
+raw_dictionary = read.csv('data/raw_data/msw3-all.csv', na.strings = '', stringsAsFactors = F)
+raw_data_reference = read.csv('data/raw_data/DATLife_data/MortalityAge.csv', na.strings = '', stringsAsFactors = F)
+raw_survivor_data = read.csv('data/raw_data/DATLife_data/MortalityAgeData.csv', na.strings = '', stringsAsFactors = F)
+```
+
+```{r Create ID name map}
+
+### For now, focusingo n this subset since it prob has best data quality
+data_reference = raw_data_reference %>%
+  filter(list_mortality_type == 'age-specific survival')
+
+dict = raw_dictionary %>%
+  select(Genus, Species, CommonName) %>%
+  drop_na()
+
+mapping = inner_join(dat_reference, dict, by = c('taxagenus' = 'Genus', 'taxaspecies' = 'Species')) %>%
+  select(age_mortality_id, CommonName)
+
+survivor_data = inner_join(mapping, raw_survivor_data, by = 'age_mortality_id')
+```
+
+```{r Drop empty columns}
+
+check_if_empty = function(x){
+  all(is.na(x))
+}
+
+empty_cols = apply(survivor_data, FUN = check_if_empty, MARGIN = 2)
+
+survivor_data = survivor_data[!empty_cols]
+
+```
+
+```{r}
+
+### some species have more than one study, filter to retain the one with the most unique values
+
+survivor_data = survivor_data %>%
+  group_by(age_mortality_id) %>%
+  dplyr::mutate(DistinctValues = n_distinct(ax)) %>%
+  ungroup() %>%
+  group_by(CommonName) %>%
+  filter(DistinctValues == max(DistinctValues))
+
+#filter out those animals that only have 1-2 recorded values (why is this a thing?)
+
+survivor_data = survivor_data %>%
+  group_by(CommonName) %>%
+  dplyr::mutate(SpeciesDistinctValues = n_distinct(ax)) %>%
+  ungroup() %>%
+  filter(DistinctValues > 2)
+
+
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+chimps = survivor_data %>%
+  filter(CommonName == 'Common Chimpanzee')
+```
+
+
+```{r}
+
+survivor_data %>%
+  filter(CommonName %in% unique(survivor_data$CommonName)[5:10]) %>%
+  ggplot(aes(x = x, y = ax)) + 
+  geom_line(aes(color = CommonName)) + 
+  facet_wrap(~CommonName, ncol = 2, scales = 'free')
+
+```
+
+
+
+
+
+
